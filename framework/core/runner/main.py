@@ -7,7 +7,7 @@ from copy import deepcopy
 import yaml
 
 from framework.core.models.TestFeature import TestFeature
-from framework.core.runner import step_definition_mapping
+from framework.core.runner import step_definition_mapping, configurator
 
 
 def load_feature_file(feature_file):
@@ -20,14 +20,18 @@ def load_feature_file(feature_file):
             print(exc)
 
 
-def get_python_files(src='step_definitions'):
+def get_files_of_extension(src, extension):
     cwd = os.getcwd()
-    py_files = []
+    matching_files = []
     for root, dirs, files in os.walk(src):
         for file in files:
-            if file.endswith(".py"):
-                py_files.append(os.path.join(cwd, root, file))
-    return py_files
+            if file.endswith(extension):
+                matching_files.append(os.path.join(cwd, root, file))
+    return matching_files
+
+
+def get_python_files(src='step_definitions'):
+    return get_files_of_extension(src, ".py")
 
 
 def dynamic_import(module_name_to_import, py_path):
@@ -50,7 +54,16 @@ def dynamic_import_from_src(src, star_import=False):
     return
 
 
-def init_framework(step_def_package='step_definitions'):
+def init_framework(step_def_package='step_definitions', properties_folder='properties'):
+    # Merge YAML propertye files into configurator.
+    for property_file in get_files_of_extension(properties_folder, ".yaml"):
+        with open(property_file, "r") as stream:
+            try:
+                object_dict = yaml.safe_load(stream)
+                configurator.merge_properties(object_dict)
+            except yaml.YAMLError as exc:
+                print(exc)
+
     # Search for python modules in step definitions folder
     step_definition_module_python_files = get_python_files(step_def_package)
 
@@ -83,7 +96,8 @@ def run_feature_file(feature_file):
             if step_to_call in step_definition_mapping.keys():
                 context['__feature__'] = feature.name
                 context['__scenario__'] = scenario.name
-                #TODO: Check if better way. Doing deep copy to avoid step definition editing step object.
+                context['__properties__'] = configurator.properties_store
+                # TODO: Check if better way. Doing deep copy to avoid step definition editing step object.
                 step_definition_mapping[step_to_call](step=deepcopy(step), context=context)
             else:
                 print("Step definition mapping for %s could not be found", step_to_call)
