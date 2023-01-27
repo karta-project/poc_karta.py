@@ -1,5 +1,5 @@
-from framework.core.properties.Configurator import Configurator
+from framework.core.test.TestProperties import TestProperties
 
 print('***************** Initializing Karta.py ********************')
 step_definition_mapping = {}
-configurator = Configurator()
+test_properties = TestProperties()
